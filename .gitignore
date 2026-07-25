@@ -1,0 +1,44 @@
+# Build directories
+/build/
+build/
+cmake-build-*/
+
+# CMake generated files
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+CTestTestfile.cmake
+install_manifest.txt
+compile_commands.json
+
+# CTest output
+Testing/
+DartConfiguration.tcl
+
+# Compiled objects, libraries, executables
+*.o
+*.obj
+*.lo
+*.slo
+*.a
+*.la
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+
+# Editor / IDE
+.vscode/
+.idea/
+.cache/
+*.swp
+*.swo
+*~
+
+# OS junk
+.DS_Store
+Thumbs.db
