@@ -5,7 +5,7 @@ target_sources(common INTERFACE
 )
 
 target_sources(common INTERFACE
-	bench/collective.h
+	bench/average.h
 )
 
 target_sources(common INTERFACE

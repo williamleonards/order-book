@@ -4,7 +4,7 @@
 
 #pragma once
 
-#include <bench/collective.h>
+#include <bench/average.h>
 #include <order_book.h>
 #include <stream/vector_stream.h>
 
@@ -33,10 +33,10 @@ static void test_all() {
 																  vec_out);
 
 	// Run benchmark
-	bench::CollectiveBenchmark<OrderBook, stream::VectorInStream,
-							   stream::VectorOutStream>
-		cb(ob, vec_in.num_reqs());
-	cb.run();
+	bench::AverageBenchmark<OrderBook, stream::VectorInStream,
+							stream::VectorOutStream>
+		bench(ob, vec_in.num_reqs());
+	bench.run();
 
 	// Inspect the responses
 	vec_out.print();

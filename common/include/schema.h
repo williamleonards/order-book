@@ -63,6 +63,28 @@ union Request {
 	Order order;
 	FullCancel full_cancel;
 	PartialCancel partial_cancel;
+
+	std::string str() {
+		RequestType type;
+		// destination before source
+		std::memcpy(&type, this, sizeof(RequestType));
+
+		switch (type) {
+			case RequestType::ORDER:
+				return std::format(
+					"Order {{ order_id={}, side={}, price={}, amt={} }}",
+					order.order_id, order.side == Side::BUY ? "BUY" : "SELL",
+					order.price, order.amt);
+			case RequestType::PARTIAL_CANCEL:
+				return std::format("PartialCancel {{ order_id={}, amt={} }}",
+								   partial_cancel.order_id, partial_cancel.amt);
+			case RequestType::FULL_CANCEL:
+				return std::format("FullCancel {{ order_id={} }}",
+								   full_cancel.order_id);
+		}
+
+		return "";
+	}
 };
 
 enum struct ResponseType {

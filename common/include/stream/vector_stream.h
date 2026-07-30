@@ -14,26 +14,38 @@ class VectorInStream {
    public:
 	VectorInStream(std::vector<Request> reqs)
 		: data_(std::move(reqs)), idx_(0) {}
-	// Take inputs from a file
+
+	// Take inputs from a file of fixed-size binary Request records (native
+	// layout, no delimiters). read() pulls exactly one sizeof(Request) chunk
+	// per iteration and fails cleanly at EOF; getline() cannot be used here
+	// because Request is a raw binary blob that may contain '\n' bytes and is
+	// larger than getline's (n - 1) store limit.
 	VectorInStream(const std::string& fname) {
 		std::ifstream input_file(fname, std::ios::in | std::ios::binary);
 		for (std::array<char, sizeof(Request)> buf;
-			 input_file.getline(&buf[0], sizeof(Request));) {
+			 input_file.read(&buf[0], sizeof(Request));) {
 			Request req;
 			std::memcpy(&req, &buf, sizeof(Request));
 			data_.push_back(std::move(req));
 		}
 	}
+
 	RequestHeader* pop() {
 		if (idx_ == data_.size()) return NULL;
 		// Retain the context that this memory belongs to a union
 		return &(data_[idx_++].header);
 	}
+
 	std::size_t num_reqs() { return data_.size(); }
+
+	void print() { debug::print_container(data_); }
 
    private:
 	std::vector<Request> data_;
-	std::size_t idx_;
+	// Default member initializer so every constructor starts at 0. The file
+	// constructor used to leave this uninitialized -> pop() indexed out of
+	// bounds and returned a wild pointer.
+	std::size_t idx_ = 0;
 };
 
 class VectorOutStream {
@@ -44,6 +56,7 @@ class VectorOutStream {
 		buf_.push_back(res);
 		return true;
 	}
+
 	void print() { debug::print_container(buf_); }
 
    private:

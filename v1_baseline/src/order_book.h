@@ -54,9 +54,8 @@ class OrderBook {
 				break;
 			}
 			default: {
-				out_.push_back(
-					{Error{{ResponseType::ERROR, sizeof(Error), 0},
-						   ErrorCode::MALFORMED_REQUEST}});
+				out_.push_back({Error{{ResponseType::ERROR, sizeof(Error), 0},
+									  ErrorCode::MALFORMED_REQUEST}});
 			}
 		}
 		return true;
@@ -76,7 +75,8 @@ class OrderBook {
 		while (order_it != sell_heap_.end() && rem_amt > 0 &&
 			   (*order_it)->price <= price) {
 			BookEntry* order = *order_it;
-			std::uint64_t transact_amt = std::min(order->amt, amt);
+			// Use remaining instead of original amount
+			std::uint64_t transact_amt = std::min(order->amt, rem_amt);
 			// add new trade to output stream
 			out_.push_back(
 				{Trade{{ResponseType::TRADE, sizeof(Trade), order_id},
@@ -88,7 +88,8 @@ class OrderBook {
 			// remove order if depleted
 			if (order->amt == 0) {
 				sell_heap_.erase(order_it);
-				orders_.erase((*order_it)->id);
+				// interator invalidated after erase()
+				orders_.erase(order->id);
 			}
 			// update iterator
 			order_it = sell_heap_.begin();
@@ -121,7 +122,8 @@ class OrderBook {
 		while (order_it != buy_heap_.end() && rem_amt > 0 &&
 			   (*order_it)->price >= price) {
 			BookEntry* order = *order_it;
-			std::uint64_t transact_amt = std::min(order->amt, amt);
+			// Use remaining instead of original amount
+			std::uint64_t transact_amt = std::min(order->amt, rem_amt);
 			// add new trade to output stream
 			out_.push_back(
 				{Trade{{ResponseType::TRADE, sizeof(Trade), order_id},
@@ -133,7 +135,8 @@ class OrderBook {
 			// remove order if depleted
 			if (order->amt == 0) {
 				buy_heap_.erase(order_it);
-				orders_.erase((*order_it)->id);
+				// interator invalidated after erase()
+				orders_.erase(order->id);
 			}
 			// update iterator
 			order_it = buy_heap_.begin();
@@ -177,9 +180,9 @@ class OrderBook {
 			erase_order(order_it);
 			return;
 		}
-		out_.push_back(Cancellation{
-			{ResponseType::CANCELLATION, sizeof(Cancellation), id},
-			CancelStatus::SUCCESS});
+		out_.push_back(
+			Cancellation{{ResponseType::CANCELLATION, sizeof(Cancellation), id},
+						 CancelStatus::SUCCESS});
 		return;
 	}
 
@@ -196,9 +199,9 @@ class OrderBook {
 		erase_order(order_it);
 
 		// emit response
-		out_.push_back(Cancellation{
-			{ResponseType::CANCELLATION, sizeof(Cancellation), id},
-			CancelStatus::SUCCESS});
+		out_.push_back(
+			Cancellation{{ResponseType::CANCELLATION, sizeof(Cancellation), id},
+						 CancelStatus::SUCCESS});
 	}
 
 	void erase_order(

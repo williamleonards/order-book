@@ -12,10 +12,9 @@ namespace bench {
 // time all requests together
 template <template <typename, typename> class OrderBook, class InStream,
 		  class OutStream>
-class CollectiveBenchmark {
+class AverageBenchmark {
    public:
-	CollectiveBenchmark(OrderBook<InStream, OutStream>& ob,
-						std::uint64_t num_reqs)
+	AverageBenchmark(OrderBook<InStream, OutStream>& ob, std::uint64_t num_reqs)
 		: ob_(ob), n(num_reqs) {}
 
 	void run() {

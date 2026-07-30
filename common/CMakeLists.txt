@@ -9,4 +9,4 @@ add_subdirectory(include)
 # Any project linking to this library starts looking under include/
 target_include_directories(common INTERFACE include)
 target_compile_features(common INTERFACE cxx_std_23)
-target_compile_options(common INTERFACE -O2 -Wpedantic -Wall -Wextra -Wconversion)
+target_compile_options(common INTERFACE -Wpedantic -Wall -Wextra -Wconversion)
