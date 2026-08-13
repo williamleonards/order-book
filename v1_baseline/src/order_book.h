@@ -74,7 +74,7 @@ class OrderBook {
 		auto resting_order_it = sell_heap_.begin();
 		while (resting_order_it != sell_heap_.end() && rem_amt > 0 &&
 			   resting_order_it->price <= price) {
-			BookEntry resting_order = *resting_order_it;
+			const BookEntry& resting_order = *resting_order_it;
 			// Use remaining instead of original amount
 			std::uint64_t transact_amt = std::min(resting_order.amt, rem_amt);
 			// add new trade to output stream
@@ -123,7 +123,7 @@ class OrderBook {
 		auto resting_order_it = buy_heap_.begin();
 		while (resting_order_it != buy_heap_.end() && rem_amt > 0 &&
 			   resting_order_it->price >= price) {
-			BookEntry resting_order = *resting_order_it;
+			const BookEntry& resting_order = *resting_order_it;
 			// Use remaining instead of original amount
 			std::uint64_t transact_amt = std::min(resting_order.amt, rem_amt);
 			// add new trade to output stream
@@ -182,13 +182,13 @@ class OrderBook {
 
 			// Mutate the amount through the iterator
 			auto order_it = buy_orders_it->second;
-			order_it->amt = std::max(order_it->amt - amt, (std::uint64_t)0);
+			order_it->amt =
+				(order_it->amt >= amt) ? order_it->amt - amt : (std::uint64_t)0;
 
 			// Erase order if depleted
 			if (order_it->amt == 0) {
 				buy_orders_.erase(buy_orders_it);
 				buy_heap_.erase(order_it);
-				return;
 			}
 		} else {
 			auto sell_orders_it = sell_orders_.find(id);
@@ -208,13 +208,13 @@ class OrderBook {
 
 			// Mutate the amount through the iterator
 			auto order_it = sell_orders_it->second;
-			order_it->amt = std::max(order_it->amt - amt, (std::uint64_t)0);
+			order_it->amt =
+				(order_it->amt >= amt) ? order_it->amt - amt : (std::uint64_t)0;
 
 			// Erase order if depleted
 			if (order_it->amt == 0) {
 				sell_orders_.erase(sell_orders_it);
 				sell_heap_.erase(order_it);
-				return;
 			}
 		}
 

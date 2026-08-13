@@ -47,22 +47,25 @@ static Request make_order(std::uint64_t id, Side side, std::uint64_t price,
 	return r;
 }
 
-static Request make_partial_cancel(std::uint64_t id, std::uint64_t amt) {
+static Request make_partial_cancel(std::uint64_t id, Side side,
+								   std::uint64_t amt) {
 	Request r;
 	std::memset(&r, 0, sizeof r);
 	r.partial_cancel.type = RequestType::PARTIAL_CANCEL;
 	r.partial_cancel.len = sizeof(PartialCancel);
 	r.partial_cancel.order_id = id;
+	r.partial_cancel.side = side;
 	r.partial_cancel.amt = amt;
 	return r;
 }
 
-static Request make_full_cancel(std::uint64_t id) {
+static Request make_full_cancel(std::uint64_t id, Side side) {
 	Request r;
 	std::memset(&r, 0, sizeof r);
 	r.full_cancel.type = RequestType::FULL_CANCEL;
 	r.full_cancel.len = sizeof(FullCancel);
 	r.full_cancel.order_id = id;
+	r.full_cancel.side = side;
 	return r;
 }
 
@@ -80,9 +83,9 @@ int main(int argc, char* argv[]) {
 		make_order(3, Side::BUY, 9, 1),
 		make_order(4, Side::BUY, 5, 3),
 		make_order(5, Side::SELL, 6, 20),
-		make_partial_cancel(5, 1),
+		make_partial_cancel(5, Side::SELL, 1),
 		make_order(6, Side::SELL, 5, 2),
-		make_full_cancel(5),
+		make_full_cancel(5, Side::SELL),
 	};
 
 	std::ofstream out(argv[1],

@@ -5,6 +5,7 @@
 #pragma once
 
 #include <bench/average.h>
+#include <inspector.h>
 #include <order_book.h>
 #include <stream/vector_stream.h>
 
@@ -42,6 +43,11 @@ static void test_all() {
 
 	// Inspect the responses
 	vec_out.print();
+
+	// Print the state of the heaps
+	OrderBookInspector<stream::VectorInStream, stream::VectorOutStream> ob_ins;
+	ob_ins.print_buy_heap(ob);
+	ob_ins.print_sell_heap(ob);
 }
 
 }  // namespace test

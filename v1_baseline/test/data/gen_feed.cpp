@@ -70,22 +70,27 @@ static Request make_order(std::uint64_t id, Side side, std::uint64_t price,
 	return r;
 }
 
-static Request make_partial_cancel(std::uint64_t id, std::uint64_t amt) {
+// Cancels carry the side of the order they target: the engine routes on it, so
+// it must match the side the order was submitted with.
+static Request make_partial_cancel(std::uint64_t id, Side side,
+								   std::uint64_t amt) {
 	Request r;
 	std::memset(&r, 0, sizeof r);
 	r.partial_cancel.type = RequestType::PARTIAL_CANCEL;
 	r.partial_cancel.len = sizeof(PartialCancel);
 	r.partial_cancel.order_id = id;
+	r.partial_cancel.side = side;
 	r.partial_cancel.amt = amt;
 	return r;
 }
 
-static Request make_full_cancel(std::uint64_t id) {
+static Request make_full_cancel(std::uint64_t id, Side side) {
 	Request r;
 	std::memset(&r, 0, sizeof r);
 	r.full_cancel.type = RequestType::FULL_CANCEL;
 	r.full_cancel.len = sizeof(FullCancel);
 	r.full_cancel.order_id = id;
+	r.full_cancel.side = side;
 	return r;
 }
 
@@ -295,10 +300,12 @@ int main(int argc, char* argv[]) {
 				0, live.size() - 1)(rng);
 			std::uint64_t oid = live[idx];
 			Resting& r = book[oid];
+			// Read before any erase below invalidates r.
+			const Side oside = r.side;
 			if (U01(rng) < 0.40 && r.amt > 1) {
 				std::uint64_t camt =
 					std::uniform_int_distribution<std::uint64_t>(1, r.amt)(rng);
-				feed.push_back(make_partial_cancel(oid, camt));
+				feed.push_back(make_partial_cancel(oid, oside, camt));
 				++s.n_partial;
 				r.amt -= camt;
 				if (r.amt == 0) {
@@ -306,7 +313,7 @@ int main(int argc, char* argv[]) {
 					book.erase(oid);
 				}
 			} else {
-				feed.push_back(make_full_cancel(oid));
+				feed.push_back(make_full_cancel(oid, oside));
 				++s.n_full;
 				remove_live(oid);
 				book.erase(oid);
@@ -484,7 +491,8 @@ int main(int argc, char* argv[]) {
 						line, sizeof line,
 						"%10zu  %-14s %10llu  %-4s %8s %10llu\n", i,
 						"PARTIAL_CANCEL",
-						(unsigned long long)r.partial_cancel.order_id, "-", "-",
+						(unsigned long long)r.partial_cancel.order_id,
+						r.partial_cancel.side == Side::BUY ? "BUY" : "SELL", "-",
 						(unsigned long long)r.partial_cancel.amt);
 					break;
 				case RequestType::FULL_CANCEL:
@@ -492,7 +500,8 @@ int main(int argc, char* argv[]) {
 						line, sizeof line,
 						"%10zu  %-14s %10llu  %-4s %8s %10s\n", i,
 						"FULL_CANCEL",
-						(unsigned long long)r.full_cancel.order_id, "-", "-",
+						(unsigned long long)r.full_cancel.order_id,
+						r.full_cancel.side == Side::BUY ? "BUY" : "SELL", "-",
 						"-");
 					break;
 			}
