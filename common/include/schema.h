@@ -44,11 +44,14 @@ struct Order : RequestHeader {
 	std::uint64_t amt;
 };
 
-struct FullCancel : RequestHeader {};
+struct FullCancel : RequestHeader {
+	Side side;
+};
 
 // Cancel an amt of a pending order
 // If the remainder is less than the argument, the order is depleted
 struct PartialCancel : RequestHeader {
+	Side side;
 	std::uint64_t amt;
 };
 

@@ -24,9 +24,11 @@ static void test_all() {
 		{.order = {{RequestType::ORDER, sizeof(Order), 5}, Side::SELL, 6, 20}},
 		{.partial_cancel = {{RequestType::PARTIAL_CANCEL, sizeof(PartialCancel),
 							 5},
+							Side::SELL,
 							1}},
 		{.order = {{RequestType::ORDER, sizeof(Order), 6}, Side::SELL, 5, 2}},
-		{.full_cancel = {{RequestType::FULL_CANCEL, sizeof(FullCancel), 5}}},
+		{.full_cancel = {{RequestType::FULL_CANCEL, sizeof(FullCancel), 5},
+						 Side::SELL}},
 	});
 	stream::VectorOutStream vec_out(25);
 	OrderBook<stream::VectorInStream, stream::VectorOutStream> ob(vec_in,

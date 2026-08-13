@@ -21,17 +21,17 @@ struct BookEntry {
 
 // Price descending, orderID ascending
 struct MaxPrice {
-	bool operator()(BookEntry* o1, BookEntry* o2) const {
-		if (o1->price == o2->price) return o1->id < o2->id;
-		return o1->price > o2->price;
+	bool operator()(BookEntry o1, BookEntry o2) const {
+		if (o1.price == o2.price) return o1.id < o2.id;
+		return o1.price > o2.price;
 	}
 };
 
 // Price ascending, orderID ascending
 struct MinPrice {
-	bool operator()(BookEntry* o1, BookEntry* o2) const {
-		if (o1->price == o2->price) return o1->id < o2->id;
-		return o1->price < o2->price;
+	bool operator()(BookEntry o1, BookEntry o2) const {
+		if (o1.price == o2.price) return o1.id < o2.id;
+		return o1.price < o2.price;
 	}
 };
 
