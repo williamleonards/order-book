@@ -42,9 +42,6 @@ class VectorInStream {
 
    private:
 	std::vector<Request> data_;
-	// Default member initializer so every constructor starts at 0. The file
-	// constructor used to leave this uninitialized -> pop() indexed out of
-	// bounds and returned a wild pointer.
 	std::size_t idx_ = 0;
 };
 
@@ -52,6 +49,7 @@ class VectorOutStream {
    public:
 	VectorOutStream(std::uint64_t n) { buf_.reserve(n); }
 	bool push_back(const Response& res) {
+		// Drop responses past the current capacity to prevent reallocation
 		if (buf_.size() >= buf_.capacity()) return false;
 		buf_.push_back(res);
 		return true;

@@ -15,11 +15,11 @@ template <template <typename, typename> class OrderBook, class InStream,
 class AverageBenchmark {
    public:
 	AverageBenchmark(OrderBook<InStream, OutStream>& ob, std::uint64_t num_reqs)
-		: ob_(ob), n(num_reqs) {}
+		: ob_(ob), n_(num_reqs) {}
 
 	void run() {
 		auto start = std::chrono::steady_clock::now();
-		for (std::uint64_t i = 0; i < n; ++i) {
+		for (std::uint64_t i = 0; i < n_; ++i) {
 			while (!ob_.try_process()) {
 			}
 		}
@@ -30,13 +30,13 @@ class AverageBenchmark {
 		std::cout
 			<< std::format(
 				   "Test took {} ns across {} queries for an average of {} ns",
-				   elapsed_ns.count(), n, elapsed_ns.count() / n)
+				   elapsed_ns.count(), n_, elapsed_ns.count() / n_)
 			<< std::endl;
 	}
 
    private:
 	OrderBook<InStream, OutStream>& ob_;
-	std::uint64_t n;
+	std::uint64_t n_;
 };
 
 }  // namespace bench

@@ -10,6 +10,7 @@
  */
 
 #include <bench/average.h>
+#include <bench/percentile.h>
 #include <order_book.h>
 #include <stream/vector_stream.h>
 
@@ -33,14 +34,16 @@ int main(int argc, char* argv[]) {
 	// Setup order book
 	stream::VectorInStream vec_in(argv[1]);
 
-	stream::VectorOutStream vec_out(25);
+	// The number of responses is bounded by twice the number of requests
+	// in the current schema
+	stream::VectorOutStream vec_out(2 * vec_in.num_reqs());
 	order_book::baseline::OrderBook<stream::VectorInStream,
 									stream::VectorOutStream>
 		ob(vec_in, vec_out);
 
 	// Run benchmark
-	bench::AverageBenchmark<order_book::baseline::OrderBook,
-							stream::VectorInStream, stream::VectorOutStream>
+	bench::PercentileBenchmark<order_book::baseline::OrderBook,
+							   stream::VectorInStream, stream::VectorOutStream>
 		bench(ob, vec_in.num_reqs());
 	bench.run();
 

@@ -9,5 +9,9 @@ target_sources(common INTERFACE
 )
 
 target_sources(common INTERFACE
+	bench/percentile.h
+)
+
+target_sources(common INTERFACE
 	stream/vector_stream.h
 )
