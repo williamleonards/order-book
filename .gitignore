@@ -43,8 +43,8 @@ DartConfiguration.tcl
 .DS_Store
 Thumbs.db
 
-# Large generated feed fixtures — regenerate with test/data/gen_feed.cpp.
+# Large generated feed fixtures — regenerate with data/gen_feed.cpp.
 # Keep the small committed handwritten.bin and the generator sources (*.cpp).
-/v1_baseline/test/data/*.bin
-/v1_baseline/test/data/*.txt
-!/v1_baseline/test/data/handwritten.bin
+/data/*.bin
+/data/*.txt
+!/data/handwritten.bin
