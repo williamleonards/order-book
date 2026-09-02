@@ -49,34 +49,6 @@ GCC/Clang extension, which this project relies on deliberately.
 
 See [common/include/schema.h](common/include/schema.h).
 
----
-
-## Repository layout
-
-```
-common/include/
-  domain.h              Shared vocabulary (Side). Deliberately dependency-free:
-                        the transport schema and the engine internals both
-                        depend on it, and on nothing of each other.
-  schema.h              Request/Response wire types.
-  debug.h               Container pretty-printers.
-  stream/
-    vector_stream.h     In/out streams backed by std::vector. The input stream
-                        slurps a .bin feed; the output stream is preallocated
-                        and *drops* rather than reallocating.
-  bench/
-    average.h           Wall-clock total / request count.
-    percentile.h        Per-request timing via rdtsc/rdtscp, reported as a
-                        latency distribution.
-
-v1_baseline/
-  src/types.h           BookEntry + the MaxPrice/MinPrice comparators.
-  src/order_book.h      The engine.
-  src/inspector.h       Friend class for dumping internal book state in tests.
-  src/main.cpp          CLI entry point.
-  test/test.h           Hand-written scenario with known-good expected output.
-  test/data/            Feed generators + generated fixtures.
-```
 
 The engine is templated on its input and output stream types
 (`OrderBook<InStream, OutStream>`), so swapping a `std::vector` feed for a ring
@@ -86,7 +58,49 @@ v3 share one harness.
 
 ---
 
-## v1 baseline design
+## Roadmap
+
+### v1 — baseline
+
+Standard DSA-style implementation with optimal runtime-complexities.
+
+### v2 — take the OS out of the picture
+
+Same data structures, different relationship with the kernel. The goal is to
+remove sources of jitter that have nothing to do with the algorithm.
+
+- **Core pinning** (`sched_setaffinity`) so the hot thread stops migrating and
+  arriving on a cold L1/L2 with an empty branch predictor. Paired with
+  `isolcpus` / `nohz_full` on the benchmark machine so nothing else is scheduled
+  there.
+- **Memory locking** (`mlockall(MCL_CURRENT | MCL_FUTURE)`) to pin the working
+  set resident and eliminate minor faults and any possibility of a swap.
+- **Warming up of data structures** before the actual hot path to eliminate minor page faults.
+- **Candidate follow-ups (TBD)**: transparent/explicit huge pages to cut TLB pressure,
+  and a warm-up pass over the structures before measurement begins.
+
+Expected effect: the P99.9+ range should collapse. The median should barely
+move — which is itself the result worth reporting.
+
+
+### v3 — getting past the STL
+
+The containers themselves, rebuilt for this access pattern.
+- **Preallocation** — a bump/pool allocator sized for the maximum expected book
+  depth, touched at startup so every page is faulted in and every TLB entry is
+  warm before the first request is timed. No `malloc` on the hot path at all.
+- **Custom hash map** for `order_id → resting order`. Open addressing with
+  linear probing over a single flat array, power-of-two capacity, sized once at
+  startup. One cache line per probe instead of a pointer chase per node, and no
+  rehashing mid-session.
+- **Custom B-tree (TBD)** for the price-ordered book. Nodes sized to a cache line (or
+  a small multiple), keys packed contiguously, so one cache miss reads many keys
+  instead of one. Far shallower than a red-black tree at the same element count,
+  and the best-price lookup stays O(1) with a cached leftmost pointer.
+
+---
+
+## v1: baseline design
 
 Two ordered sets and two hash maps:
 
@@ -146,7 +160,9 @@ a mean hides exactly the behavior worth studying.
 
 ---
 
-## Results — v1 baseline
+## Results
+
+### v1: baseline
 
 1,000,000 requests per feed. Intel Core i9-14900HX, GCC 13.3, `-O2`, generic
 `x86-64`. **Stock desktop conditions**: no core pinning, no isolated CPUs, no
@@ -158,58 +174,61 @@ a mean hides exactly the behavior worth studying.
 | `volatile` | 69 ns | 129 ns | 800 ns | 2.6 µs | 8.9 µs | 422 µs |
 | `flash_crash` | 79 ns | 131 ns | 759 ns | 2.5 µs | 9.3 µs | 99 µs |
 
-The shape is more interesting than the numbers. **The median is fine and the
-tail is terrible** — a ~10x jump from P90 to P99 and another ~3x to P99.9, on
-input distributions that are wildly different from each other. A flash crash
-cascade and a calm mean-reverting session produce nearly identical latency
-curves, which says the tail isn't coming from market structure or from the
-matching logic. It's coming from everything underneath: allocator slow paths,
-page faults, cache misses on tree traversal, scheduler migrations, frequency
-transitions.
+As expected, the median is fine with atrocious tail latencies. Looking across 
+different feeds, it appears that the tail does not come from market structure or matching logic. It's coming from everything underneath: allocator slow paths,
+page faults, cache misses on tree traversal, context switches, etc.
 
 That's the thesis for the rest of the project — the remaining versions attack
 the tail, not the median.
 
----
+### v2: isolating the os
+Inserting a breakpoint just before the hot paths enables `perf` to analyze what's
+happening:
 
-## Roadmap
+```bash
+william-sumendap@william-sumendap-Legion-Pro-5-16IRX9:~/Documents/Order-Book$ sudo perf stat -e faults,minor-faults,major-faults,cs -p 62074
 
-### v2 — take the OS out of the picture
+ Performance counter stats for process id '62074':
 
-Same data structures, different relationship with the kernel. The goal is to
-remove sources of jitter that have nothing to do with the algorithm.
+            14,447      faults                                                                
+            14,447      minor-faults                                                          
+                 0      major-faults                                                          
+                 2      cs                                                                    
 
-- **Core pinning** (`sched_setaffinity`) so the hot thread stops migrating and
-  arriving on a cold L1/L2 with an empty branch predictor. Paired with
-  `isolcpus` / `nohz_full` on the benchmark machine so nothing else is scheduled
-  there.
-- **Memory locking** (`mlockall(MCL_CURRENT | MCL_FUTURE)`) to pin the working
-  set resident and eliminate minor faults and any possibility of swap.
-- **Preallocation** — a bump/pool allocator sized for the maximum expected book
-  depth, touched at startup so every page is faulted in and every TLB entry is
-  warm before the first request is timed. No `malloc` on the hot path at all.
-- Candidate follow-ons: transparent/explicit huge pages to cut TLB pressure,
-  and a warm-up pass over the structures before measurement begins.
+       3.002248206 seconds time elapsed
+```
 
-Expected effect: the P99.9+ range should collapse. The median should barely
-move — which is itself the result worth reporting.
+By locking memory pages, preventing freed pages of the heap from being reclaimed, and warming up our data structures, we can eliminate the
+page faults:
 
+```bash
+william-sumendap@william-sumendap-Legion-Pro-5-16IRX9:~/Documents/Order-Book$ sudo perf stat -e faults,minor-faults,major-faults,cs -p 100930
 
-### v3 — replace the data structures
+ Performance counter stats for process id '100930':
 
-The containers themselves, rebuilt for this access pattern.
+                 1      faults                                                                
+                 1      minor-faults                                                          
+                 0      major-faults                                                          
+                 2      cs                                                                    
 
-- **Custom hash map** for `order_id → resting order`. Open addressing with
-  linear probing over a single flat array, power-of-two capacity, sized once at
-  startup. One cache line per probe instead of a pointer chase per node, and no
-  rehashing mid-session.
-- **Custom B-tree (TBD)** for the price-ordered book. Nodes sized to a cache line (or
-  a small multiple), keys packed contiguously, so one cache miss reads many keys
-  instead of one. Far shallower than a red-black tree at the same element count,
-  and the best-price lookup stays O(1) with a cached leftmost pointer.
-- Order records stored in the preallocated arena from v2, with the map and tree
-  holding indices rather than pointers — smaller, and stable across arena
-  growth.
+       3.002519446 seconds time elapsed
+```
+
+That alone reduces our P99+ massively:
+
+```bash
+william-sumendap@william-sumendap-Legion-Pro-5-16IRX9:~/Documents/Order-Book$ taskset -c 3 ./build/v1_baseline/v1_baseline data/typical.bin
+Setup and warmup complete. PID: 100930
+Press Enter to begin 1 million hot path requests...
+Latency distributions:
+P50 = 76.47424039210482 ns
+P90 = 110.78430500045455 ns
+P99 = 253.81180324731005 ns
+P99.9 = 414.20102093453534 ns
+P99.99 = 3428.5262152006344 ns
+MAX = 25297.265347435885 ns
+Calibrated tsc frequency was 2.4191152347699467 cycles per ns
+```
 
 ---
 
